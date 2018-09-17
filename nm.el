@@ -650,9 +650,12 @@ If EXPECT-SEQUENCE then assumes that the process output is a sequence of LISP ob
   (let ((result (nm-result-at-pos)))
     (when result
       (let ((query
-             (if (nm-thread-mode)
+             (concat
+              (when (seq-contains (plist-get result :tags) "deleted")
+                  "tag:deleted AND ")
+              (if (nm-thread-mode)
                  (concat "thread:" (plist-get result :thread))
-               (concat "id:" (plist-get result :id)))))
+               (concat "id:" (plist-get result :id))))))
         (funcall fn query)))))
 
 (defun nm-refresh-result ()
