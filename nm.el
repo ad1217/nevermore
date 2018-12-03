@@ -79,36 +79,61 @@
   "Face for Nm tags."
   :group 'nm-faces)
 
-(defvar nm-results-window-size 8
-  "Number of lines of search results to show when viewing both results and a thread or message")
+(defcustom nm-results-window-size 8
+  "Number of lines of search results to show when viewing both results and a thread or message"
+  :group 'nm
+  :type 'integer)
 
-(defvar nm-separator " | "
-  "Text used to separate fields.")
+(defcustom nm-separator " | "
+  "Text used to separate fields."
+  :group 'nm
+  :type 'string)
 
-(defvar nm-empty-subject "[No subject]"
-  "Text to use as subject when missing.")
+(defcustom nm-empty-subject "[No subject]"
+  "Text to use as subject when missing."
+  :group 'nm
+  :type 'string)
 
-(defvar nm-empty-title "[No title]"
-  "Text to use as title when missing.")
+(defcustom nm-empty-title "[No title]"
+  "Text to use as title when missing."
+  :group 'nm
+  :type 'string)
 
-(defvar nm-empty-authors "[No authors]"
-  "Text to use as authors when missing.")
+(defcustom nm-empty-authors "[No authors]"
+  "Text to use as authors when missing."
+  :group 'nm
+  :type 'string)
 
-(defvar nm-empty-date "[No date]"
-  "Text to use as date when missing.")
+(defcustom nm-empty-date "[No date]"
+  "Text to use as date when missing."
+  :group 'nm
+  :type 'string)
 
-(defvar nm-default-query "tag:inbox ")
+(defcustom nm-default-query "tag:inbox "
+  "The query to use on startup and when reset."
+  :group 'nm
+  :type 'string)
 
-(defvar nm-date-width 12
-  "Width of dates in Nm buffer.")
+(defcustom nm-date-width 12
+  "Width of dates in Nm buffer."
+  :group 'nm
+  :type 'integer)
 
-(defvar nm-authors-width 20
-  "Width of authors in Nm buffer.")
+(defcustom nm-authors-width 20
+  "Width of authors in Nm buffer."
+  :group 'nm
+  :type 'integer)
 
-(defvar nm-mode-hook nil
-  "Hook run when entering Nm mode.")
+(defcustom nm-sort-order 'newest-first
+  "Order to sort emails by."
+  :group 'nm
+  :type 'symbol
+  :options '(newest-first oldest-first))
 
-(defvar nm-sort-order 'newest-first) ; or 'oldest-first
+(defcustom nm-mode-hook nil
+  "Hook run when entering Nm mode."
+  :group 'nm
+  :type 'hook)
 
 ;; Constants
 
