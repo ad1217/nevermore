@@ -238,29 +238,29 @@ buffer containing notmuch's output and signal an error."
   (with-temp-buffer
     (let ((err-file (make-temp-file "nm-error")))
       (unwind-protect
-	  (let ((status (apply #'call-process
-			       notmuch-command nil (list t err-file) nil
+	      (let ((status (apply #'call-process
+			                   notmuch-command nil (list t err-file) nil
                                (car args) ; search, show, count, etc.
                                "--format=sexp"
                                "--format-version=1"
                                (cdr args))))
-	    (notmuch-check-exit-status status (cons notmuch-command args)
-				       (buffer-string) err-file)
-	    (goto-char (point-min))
+	        (notmuch-check-exit-status status (cons notmuch-command args)
+				                       (buffer-string) err-file)
+	        (goto-char (point-min))
             (read (current-buffer)))
-	(delete-file err-file)))))
+	    (delete-file err-file)))))
 
 (defun nm-my-addresses ()
   "Obtain my email addresses from notmuch."
   (with-temp-buffer
     (let ((err-file (make-temp-file "nm-error")))
       (unwind-protect
-	  (let* ((args '("config" "get" "user.primary_email"))
+	      (let* ((args '("config" "get" "user.primary_email"))
                  (status (apply #'call-process
                                 notmuch-command nil (list t err-file) nil
                                 args)))
-	    (notmuch-check-exit-status status (cons notmuch-command args)
-				       (buffer-string) err-file)
+	        (notmuch-check-exit-status status (cons notmuch-command args)
+				                       (buffer-string) err-file)
             (let* ((args2 '("config" "get" "user.other_email"))
                    (status2 (apply #'call-process
                                    notmuch-command nil (list t err-file) nil
@@ -268,7 +268,7 @@ buffer containing notmuch's output and signal an error."
               (notmuch-check-exit-status status2 (cons notmuch-command args2)
                                          (buffer-string) err-file)
               (split-string (buffer-string) "\n+" t)))
-	(delete-file err-file)))))
+	    (delete-file err-file)))))
 
 (defun nm-chomp (str)
   "Trim leading and trailing whitespace from STR."
@@ -313,9 +313,9 @@ buffer containing notmuch's output and signal an error."
        (propertize
         (nm-truncate-or-pad nm-authors-width
                             (if authors
-                                  (if (nm-thread-mode)
-                                      authors
-                                    (car (split-string authors "|")))
+                                (if (nm-thread-mode)
+                                    authors
+                                  (car (split-string authors "|")))
                               nm-empty-authors))
         'face 'nm-authors-face)
        (propertize nm-separator 'face 'nm-separator-face)
@@ -337,13 +337,13 @@ buffer containing notmuch's output and signal an error."
   (let ((inhibit-read-only t))
     (setq header-line-format
           (concat
-	   (pcase nm-query-mode
-	     (`jotmuch
-	      (propertize "Jotmuch search" 'face 'nm-header-face))
-	     (`thread
-	      (propertize "Thread search" 'face 'nm-header-face))
-	     (_ ; default => `message
-	      (propertize "Message search" 'face 'nm-header-face)))
+	       (pcase nm-query-mode
+	         (`jotmuch
+	          (propertize "Jotmuch search" 'face 'nm-header-face))
+	         (`thread
+	          (propertize "Thread search" 'face 'nm-header-face))
+	         (_ ; default => `message
+	          (propertize "Message search" 'face 'nm-header-face)))
            ": "
            (propertize (nm-chomp nm-query) 'face 'nm-query-face)))))
 
@@ -543,15 +543,15 @@ If EXPECT-SEQUENCE then assumes that the process output is a sequence of LISP ob
   (setq nm-all-results-count nil)
   (unless (equal nm-query-mode 'jotmuch)
     (setq nm-async-count-pending-proc
-	  (notmuch-start-notmuch
-	   "nm-async-count" ; process name
-	   nil              ; process buffer
-	   nil              ; process sentinel
-	   "count"          ; notmuch command
-	   (if (nm-thread-mode)
-	       "--output=threads"
-	     "--output=messages")
-	   nm-query))
+	      (notmuch-start-notmuch
+	       "nm-async-count" ; process name
+	       nil              ; process buffer
+	       nil              ; process sentinel
+	       "count"          ; notmuch command
+	       (if (nm-thread-mode)
+	           "--output=threads"
+	         "--output=messages")
+	       nm-query))
     (set-process-filter nm-async-count-pending-proc (nm-result-wrangler 'nm-async-count-result t))))
 
 (defun nm-async-count-result (obj)
@@ -598,7 +598,7 @@ If EXPECT-SEQUENCE then assumes that the process output is a sequence of LISP ob
 
 (defun nm-flatten-tree (tree)
   (let ((msg (car tree))
-	(replies (cadr tree)))
+	    (replies (cadr tree)))
     (if msg
         (cons msg (nm-flatten-thread replies))
       (nm-flatten-thread replies))))
@@ -644,11 +644,11 @@ If EXPECT-SEQUENCE then assumes that the process output is a sequence of LISP ob
   (let ((result (nm-result-at-pos)))
     (when result
       (let ((url (plist-get result :url)))
-	(when url
-	  (browse-url url))))))
+	    (when url
+	      (browse-url url))))))
 
 (defun nm-show-thread (query)
-  ; query should be a thread id
+                                        ; query should be a thread id
   (notmuch-show query nil nil nm-query nil))
 
 (defun nm-show-messages (query &optional nodisplay)
@@ -680,7 +680,7 @@ If EXPECT-SEQUENCE then assumes that the process output is a sequence of LISP ob
     (when (and (not nodisplay) (not (get-buffer-window nm-view-buffer)))
       (display-buffer-below-selected
        buffer `((window-height . ,(min (truncate (* (window-height) nm-view-window-percent-size))
-				       (- (window-height) nm-results-window-min-size 2))))))))
+                                       (- (window-height) nm-results-window-min-size 2))))))))
 
 (defun nm-apply-to-result (fn)
   (let ((result (nm-result-at-pos)))
@@ -688,8 +688,8 @@ If EXPECT-SEQUENCE then assumes that the process output is a sequence of LISP ob
       (let ((query
              (concat
               (if (nm-thread-mode)
-                 (concat "thread:" (plist-get result :thread))
-               (concat "id:" (plist-get result :id))))))
+                  (concat "thread:" (plist-get result :thread))
+                (concat "id:" (plist-get result :id))))))
         (funcall fn query)))))
 
 (defun nm-refresh-result ()
@@ -795,7 +795,7 @@ If EXPECT-SEQUENCE then assumes that the process output is a sequence of LISP ob
   "Snooze it.  With prefix, prompt for deadline"
   (interactive "P")
   (let* ((target (if (not arg) nm-snooze-default-target
-                  (read-string "Snooze until:" nm-snooze-default-target)))
+                   (read-string "Snooze until:" nm-snooze-default-target)))
          (target-dtime (nm-date-search-string target)))
     (when (not target-dtime) (error "Error: cannot determine snooze time"))
     (let* ((target-etime (apply 'encode-time target-dtime))
@@ -823,36 +823,36 @@ If EXPECT-SEQUENCE then assumes that the process output is a sequence of LISP ob
       (cancel-timer nm-wakeup-timer)
       (setq nm-wakeup-timer nil))
     (let* ((now-etime (apply 'encode-time (decode-time)))
-	   (count 0)
-	   (messages (nm-call-notmuch
-		      "search"
-		      "--output=messages"
-		      "tag:later")))
+	       (count 0)
+	       (messages (nm-call-notmuch
+		              "search"
+		              "--output=messages"
+		              "tag:later")))
       (mapc
        (lambda (message-id)
-	 (let* ((query (concat "id:" message-id))
-		(msg (car
-		      (nm-call-notmuch
-		       "search"
-		       "--output=summary"
-		       query)))
-		(tags (plist-get msg :tags))
-		(later-etime (apply 'append (mapcar 'nm-later-to-etime tags))))
-	   (when later-etime
-	     (if (not (nm-etime-before now-etime later-etime))
+	     (let* ((query (concat "id:" message-id))
+		        (msg (car
+		              (nm-call-notmuch
+		               "search"
+		               "--output=summary"
+		               query)))
+		        (tags (plist-get msg :tags))
+		        (later-etime (apply 'append (mapcar 'nm-later-to-etime tags))))
+	       (when later-etime
+	         (if (not (nm-etime-before now-etime later-etime))
                                         ; later-etime <= now-etime: wake up
-		 (progn
-		   (setq count (1+ count))
-		   (notmuch-tag query `("-later" "+inbox" ,(concat "-" (caddr later-etime)))))
+		         (progn
+		           (setq count (1+ count))
+		           (notmuch-tag query `("-later" "+inbox" ,(concat "-" (caddr later-etime)))))
                                         ; later-etime > now-etime: find time to set timer for
-	       (when (or (not nm-wakeup-etime) (nm-etime-before later-etime nm-wakeup-etime))
-		 (let ((later-etime
+	           (when (or (not nm-wakeup-etime) (nm-etime-before later-etime nm-wakeup-etime))
+		         (let ((later-etime
                                         ; our later-etime may have >2 elements, run-at-time does not like this
-			(list (car later-etime) (cadr later-etime))))
-		   (setq nm-wakeup-etime later-etime)))))))
+			            (list (car later-etime) (cadr later-etime))))
+		           (setq nm-wakeup-etime later-etime)))))))
        messages)
       (when nm-wakeup-etime
-	(setq nm-wakeup-timer (run-at-time nm-wakeup-etime nil 'nm-wakeup)))
+	    (setq nm-wakeup-timer (run-at-time nm-wakeup-etime nil 'nm-wakeup)))
       (cond
        ((eq count 0) (unless quiet (message "No messages are ready to wake up")))
        ((eq count 1) (message "Woke 1 message"))
@@ -1053,12 +1053,12 @@ If EXPECT-SEQUENCE then assumes that the process output is a sequence of LISP ob
 
 (defun nm-read-tags (&optional initial-input)
   (let* ((tag-list (notmuch-tag-completions))
-	 (crm-separator " ")
-	 (crm-local-completion-map
-	  (let ((map (make-sparse-keymap)))
-	    (set-keymap-parent map crm-local-completion-map)
-	    (define-key map " " 'self-insert-command)
-	    map)))
+	     (crm-separator " ")
+	     (crm-local-completion-map
+	      (let ((map (make-sparse-keymap)))
+	        (set-keymap-parent map crm-local-completion-map)
+	        (define-key map " " 'self-insert-command)
+	        map)))
     (delete "" (completing-read-multiple "Tags: " tag-list nil nil initial-input 'nm-read-tags-history))))
 
 (defun nm-tag ()
