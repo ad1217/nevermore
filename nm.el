@@ -224,7 +224,6 @@ See also `nm-results-window-min-size'"
 (defun nm-toggle-query-mode ()
   (interactive)
   (pcase nm-query-mode
-    (`jotmuch nil)
     (`thread (setq nm-query-mode 'message)
              (nm-refresh))
     (`message (setq nm-query-mode 'thread)
@@ -338,8 +337,6 @@ buffer containing notmuch's output and signal an error."
     (setq header-line-format
           (concat
 	       (pcase nm-query-mode
-	         (`jotmuch
-	          (propertize "Jotmuch search" 'face 'nm-header-face))
 	         (`thread
 	          (propertize "Thread search" 'face 'nm-header-face))
 	         (_ ; default => `message
@@ -446,17 +443,7 @@ If EXPECT-SEQUENCE then assumes that the process output is a sequence of LISP ob
               "--body=false"
               "--entire-thread=false"
               nm-query))
-       (set-process-filter nm-async-search-pending-proc (nm-result-wrangler 'nm-async-search-message-result))))
-    (`jotmuch
-     (setq nm-async-search-pending-proc
-           (start-process
-            "nm-async-search" ; process name
-            nil               ; process buffer
-            "jot"
-            "search"
-            "--format=(:id \"{{id}}\" :title \"{{title}}\" :url \"{{url}}\" :tags ({% for t in tags %} \"{{t}}\"{% endfor %}))"
-            nm-query))
-     (set-process-filter nm-async-search-pending-proc (nm-result-wrangler 'nm-async-search-jotmuch-result t)))))
+       (set-process-filter nm-async-search-pending-proc (nm-result-wrangler 'nm-async-search-message-result))))))
 
 (defun nm-async-search-thread-result (result)
   (when (and result (get-buffer nm-results-buffer))
@@ -487,33 +474,6 @@ If EXPECT-SEQUENCE then assumes that the process output is a sequence of LISP ob
              (setq nm-results (nm-dynarray-append nm-results result)))
            results))))))
 
-(defun nm-async-search-jotmuch-result (result)
-  (when (and result (get-buffer nm-results-buffer))
-    (with-current-buffer nm-results-buffer
-      (save-excursion
-        (goto-char (point-max))
-        (let ((inhibit-read-only t))
-          (insert (nm-jotmuch-result-line result) "\n"))
-        (setq nm-results (nm-dynarray-append nm-results result))))))
-
-(defun nm-jotmuch-result-line (result)
-  "Return a line of text for a jotmuch RESULT."
-  (when result
-    (let* ((title (plist-get result :title))
-           (url (plist-get result :url))
-           (tags (plist-get result :tags)))
-      (concat
-       (propertize
-        (cond
-         ((and title (> (length title) 0)) title)
-         ((and url (> (length url) 0)) url)
-         (t nm-empty-title))
-        'face 'nm-read-face)
-       (when tags
-         (propertize
-          (format " (%s)" (mapconcat 'identity tags " "))
-          'face 'nm-tags-face))))))
-
 (defun nm-bury ()
   "Bury the current nevermore buffers."
   (interactive)
@@ -541,18 +501,17 @@ If EXPECT-SEQUENCE then assumes that the process output is a sequence of LISP ob
   (nm-kill nm-async-count-pending-proc)
   (nm-setq-mode-name "nevermore")
   (setq nm-all-results-count nil)
-  (unless (equal nm-query-mode 'jotmuch)
-    (setq nm-async-count-pending-proc
-	      (notmuch-start-notmuch
-	       "nm-async-count" ; process name
-	       nil              ; process buffer
-	       nil              ; process sentinel
-	       "count"          ; notmuch command
-	       (if (nm-thread-mode)
-	           "--output=threads"
-	         "--output=messages")
-	       nm-query))
-    (set-process-filter nm-async-count-pending-proc (nm-result-wrangler 'nm-async-count-result t))))
+  (setq nm-async-count-pending-proc
+	    (notmuch-start-notmuch
+	     "nm-async-count" ; process name
+	     nil              ; process buffer
+	     nil              ; process sentinel
+	     "count"          ; notmuch command
+	     (if (nm-thread-mode)
+	         "--output=threads"
+	       "--output=messages")
+	     nm-query))
+    (set-process-filter nm-async-count-pending-proc (nm-result-wrangler 'nm-async-count-result t)))
 
 (defun nm-async-count-result (obj)
   (setq nm-all-results-count obj)
@@ -648,7 +607,7 @@ If EXPECT-SEQUENCE then assumes that the process output is a sequence of LISP ob
 	      (browse-url url))))))
 
 (defun nm-show-thread (query)
-                                        ; query should be a thread id
+  "query should be a thread id"
   (notmuch-show query nil nil nm-query nil))
 
 (defun nm-show-messages (query &optional nodisplay)
@@ -707,7 +666,6 @@ If EXPECT-SEQUENCE then assumes that the process output is a sequence of LISP ob
 ; TODO: the result may no longer match the query (e.g., if the query was tag:unread and we've now read the message).
 ; So we want to combine q below with nm-query to detect this case.
   (pcase nm-query-mode
-    (`jotmuch nil)
     (`thread (nm-apply-to-result (lambda (q)
                                    (let ((old-result (nm-result-at-pos))
                                          (now-result (nm-call-notmuch "search" "--output=summary" "--exclude=false" q)))
@@ -741,7 +699,6 @@ If EXPECT-SEQUENCE then assumes that the process output is a sequence of LISP ob
   "Show the thread of the current message (in message mode) or just this thread (in thread mode)"
   (interactive)
   (pcase nm-query-mode
-    (`jotmuch nil)
     (`thread (nm-apply-to-result (lambda (q)
                                    (setq nm-query q)
                                    (nm-refresh))))
@@ -757,7 +714,6 @@ If EXPECT-SEQUENCE then assumes that the process output is a sequence of LISP ob
   "Open it."
   (interactive)
   (pcase nm-query-mode
-    (`jotmuch (nm-show-url))
     (`thread (nm-apply-to-result 'nm-show-thread))
     (`message (nm-apply-to-result 'nm-show-messages))))
 
@@ -785,113 +741,6 @@ If EXPECT-SEQUENCE then assumes that the process output is a sequence of LISP ob
      (nm-show-messages q t)))
   (with-current-buffer nm-view-buffer
     (notmuch-mua-forward-message)))
-
-(defvar nm-snooze-default-target "tomorrow 6am"
-  "Default target for snoozing a message or thread")
-(defvar nm-wakeup-timer nil)
-(defvar nm-wakeup-etime nil)
-
-(defun nm-snooze  (&optional arg)
-  "Snooze it.  With prefix, prompt for deadline"
-  (interactive "P")
-  (let* ((target (if (not arg) nm-snooze-default-target
-                   (read-string "Snooze until:" nm-snooze-default-target)))
-         (target-dtime (nm-date-search-string target)))
-    (when (not target-dtime) (error "Error: cannot determine snooze time"))
-    (let* ((target-etime (apply 'encode-time target-dtime))
-           (target-etime-tag (format "+later.%d.%d" (car target-etime) (cadr target-etime))))
-      (nm-apply-to-result (lambda (q)
-                            (notmuch-tag q `("+later" ,target-etime-tag "-inbox"))
-                            (when (or (not nm-wakeup-etime)                        ; no wakeup time is set
-                                      (nm-etime-before target-etime nm-wakeup-etime)) ; or wakeup time is after target
-                              (when nm-wakeup-timer (cancel-timer nm-wakeup-timer))
-                              (setq nm-wakeup-etime target-etime)
-                              (setq nm-wakeup-timer (run-at-time nm-wakeup-etime nil 'nm-wakeup))))))
-    (nm-update-tags)
-    (forward-line)))
-
-(defun nm-later-to-etime (later)
-  (when (and later (string-match "later\\.\\([[:digit:]]+\\)\\.\\([[:digit:]]+\\)" later))
-    (list (string-to-number (match-string 1 later)) (string-to-number (match-string 2 later))
-          later))) ;; throw in the string itself, etime only cares that there are 2 initial ints
-
-(defun nm-wakeup (&optional quiet)
-  (interactive)
-  (unless (equal nm-query-mode 'jotmuch)
-    (setq nm-wakeup-etime nil)
-    (when nm-wakeup-timer
-      (cancel-timer nm-wakeup-timer)
-      (setq nm-wakeup-timer nil))
-    (let* ((now-etime (apply 'encode-time (decode-time)))
-	       (count 0)
-	       (messages (nm-call-notmuch
-		              "search"
-		              "--output=messages"
-		              "tag:later")))
-      (mapc
-       (lambda (message-id)
-	     (let* ((query (concat "id:" message-id))
-		        (msg (car
-		              (nm-call-notmuch
-		               "search"
-		               "--output=summary"
-		               query)))
-		        (tags (plist-get msg :tags))
-		        (later-etime (apply 'append (mapcar 'nm-later-to-etime tags))))
-	       (when later-etime
-	         (if (not (nm-etime-before now-etime later-etime))
-                                        ; later-etime <= now-etime: wake up
-		         (progn
-		           (setq count (1+ count))
-		           (notmuch-tag query `("-later" "+inbox" ,(concat "-" (caddr later-etime)))))
-                                        ; later-etime > now-etime: find time to set timer for
-	           (when (or (not nm-wakeup-etime) (nm-etime-before later-etime nm-wakeup-etime))
-		         (let ((later-etime
-                                        ; our later-etime may have >2 elements, run-at-time does not like this
-			            (list (car later-etime) (cadr later-etime))))
-		           (setq nm-wakeup-etime later-etime)))))))
-       messages)
-      (when nm-wakeup-etime
-	    (setq nm-wakeup-timer (run-at-time nm-wakeup-etime nil 'nm-wakeup)))
-      (cond
-       ((eq count 0) (unless quiet (message "No messages are ready to wake up")))
-       ((eq count 1) (message "Woke 1 message"))
-       (t (message "Woke %d messages" count)))
-      (nm-refresh))))
-
-;;; https://github.com/berryboy/chrono
-
-;;; MAYBE USEFUL, FROM PLANNER MODE, http://repo.or.cz/w/planner-el.git/blob_plain/master:/planner.el
-;; BUT there is a lot of stuff there, planner-expand-name brings in a bunch.
-;; Really need to separate out.
-;; (defun planner-read-date (&optional prompt force-read)
-;;   "Prompt for a date string in the minibuffer.
-;; If PROMPT is non-nil, display it as the prompt string.
-;; If FORCE-READ is non-nil, prompt for a date even when we are not
-;; using day pages."
-;;   (save-window-excursion
-;;     (when (or planner-use-day-pages force-read)
-;;       (let ((old-buffer (current-buffer)))
-;;         (when planner-use-calendar-flag (calendar))
-;;         (let ((old-map (copy-keymap calendar-mode-map)))
-;;           (unwind-protect
-;;               (progn
-;;                 (define-key calendar-mode-map [return]
-;;                   'planner-calendar-select)
-;;                 (define-key calendar-mode-map [mouse-1]
-;;                   'planner-calendar-select)
-;;                 (setq planner-calendar-selected-date nil)
-;;                 (let ((text (read-string
-;;                              (format "%s %s"
-;;                                      (or prompt "When")
-;;                                      (format-time-string
-;;                                       (concat "(%Y" planner-date-separator "%m"
-;;                                               planner-date-separator "%d, %m"
-;;                                        planner-date-separator "%d, %d): "))))))
-;;                   (or planner-calendar-selected-date
-;;                       (with-current-buffer old-buffer
-;;                         (planner-expand-name text)))))
-;;             (setq calendar-mode-map old-map)))))))
 
 ;;; Le incremental search
 
@@ -1107,11 +956,9 @@ If EXPECT-SEQUENCE then assumes that the process output is a sequence of LISP ob
     (define-key map "q" 'nm-bury)
     (define-key map "r" 'nm-reply)
     (define-key map "R" 'nm-reply-all)
-    (define-key map "s" 'nm-snooze)
     (define-key map "S" 'nm-toggle-sort-order)
     (define-key map "t" 'nm-tag)
     (define-key map "T" 'nm-focus-thread)
-    (define-key map "W" 'nm-wakeup)
     map)
   "Keymap for Nm mode.")
 
@@ -1133,27 +980,16 @@ Turning on `nm-mode' runs the hook `nm-mode-hook'.
   (nm-draw-header)
   (setq nm-results (nm-dynarray-create))
   (setq nm-all-results-count nil)
-  (nm-wakeup t)
   (setq major-mode 'nm-mode)
   (run-mode-hooks 'nm-mode-hook)
   (add-hook 'post-command-hook 'nm-results-post-command nil t)
-  (when (and (not (equal nm-query-mode 'jotmuch)) (not nm-completion-addresses)) (nm-async-harvest))
+  (when (not nm-completion-addresses) (nm-async-harvest))
   (nm-refresh))
 
 ;;;###autoload
 (defun nm ()
   "Switch to *nm* buffer and load files."
   (interactive)
-  (switch-to-buffer nm-results-buffer)
-  (if (not (eq major-mode 'nm-mode))
-      (nm-mode)))
-
-;;;###autoload
-(defun nm-jotmuch ()
-  "Switch to *nm* buffer and run jotmuch."
-  (interactive)
-  (setq nm-query-mode 'jotmuch)
-  (setq nm-query "*")
   (switch-to-buffer nm-results-buffer)
   (if (not (eq major-mode 'nm-mode))
       (nm-mode)))
