@@ -79,10 +79,18 @@
   "Face for Nm tags."
   :group 'nm-faces)
 
-(defcustom nm-results-window-size 8
-  "Number of lines of search results to show when viewing both results and a thread or message"
+(defcustom nm-results-window-min-size 8
+  "Minimum number of lines of search results to show when viewing\
+ both results and a thread or message.
+See also `nm-view-window-percent-size'"
   :group 'nm
   :type 'integer)
+
+(defcustom nm-view-window-percent-size 0.75
+  "Percentage size of the message view window.
+See also `nm-results-window-min-size'"
+  :group 'nm
+  :type 'float)
 
 (defcustom nm-separator " | "
   "Text used to separate fields."
@@ -669,7 +677,9 @@ If EXPECT-SEQUENCE then assumes that the process output is a sequence of LISP ob
         (run-hooks 'notmuch-show-hook)
         (notmuch-show-goto-first-wanted-message)))
     (when (and (not nodisplay) (not (get-buffer-window nm-view-buffer)))
-      (display-buffer-below-selected buffer `((window-height . ,(- (window-height) nm-results-window-size 2)))))))
+      (display-buffer-below-selected
+       buffer `((window-height . ,(min (truncate (* (window-height) nm-view-window-percent-size))
+				       (- (window-height) nm-results-window-min-size 2))))))))
 
 (defun nm-apply-to-result (fn)
   (let ((result (nm-result-at-pos)))
