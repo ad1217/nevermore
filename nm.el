@@ -656,6 +656,7 @@ If EXPECT-SEQUENCE then assumes that the process output is a sequence of LISP ob
   (let* ((forest (ignore-errors
                    (nm-call-notmuch
                     "show"
+                    "--exclude=false"
                     "--entire-thread=false"
                     query)))
          (msgs (nm-flatten-forest forest))
@@ -686,8 +687,6 @@ If EXPECT-SEQUENCE then assumes that the process output is a sequence of LISP ob
     (when result
       (let ((query
              (concat
-              (when (seq-contains (plist-get result :tags) "deleted")
-                  "tag:deleted AND ")
               (if (nm-thread-mode)
                  (concat "thread:" (plist-get result :thread))
                (concat "id:" (plist-get result :id))))))
@@ -747,7 +746,7 @@ If EXPECT-SEQUENCE then assumes that the process output is a sequence of LISP ob
                                    (setq nm-query q)
                                    (nm-refresh))))
     (`message (nm-apply-to-result (lambda (q)
-                                    (let ((result (nm-call-notmuch "search" "--output=summary" q)))
+                                    (let ((result (nm-call-notmuch "search" "--output=summary" "--exclude=false" q)))
                                       (when result
                                         (let ((thread-id (plist-get (car result) :thread)))
                                           (when thread-id
@@ -972,7 +971,7 @@ If EXPECT-SEQUENCE then assumes that the process output is a sequence of LISP ob
 
 (defun nm-get-message (message-id)
   (nm-call-notmuch
-   "show"
+   "show" "--exclude=false"
    (concat "id:" message-id)))
 
 ;;; Replies
