@@ -736,11 +736,8 @@ If EXPECT-SEQUENCE then assumes that the process output is a sequence of LISP ob
 (defun nm-forward ()
   "Forward it."
   (interactive)
-  (nm-apply-to-result
-   (lambda (q)
-     (nm-show-messages q t)))
-  (with-current-buffer nm-view-buffer
-    (notmuch-mua-forward-message)))
+  (nm-apply-to-result (lambda (q)
+                        (notmuch-mua-new-forward-messages (list q)))))
 
 ;;; Le incremental search
 
