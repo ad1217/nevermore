@@ -364,11 +364,11 @@ buffer containing notmuch's output and signal an error."
 
 (defun nm-view-buffer-update ()
   "Make sure the view window (if it exists) is showing the current query."
-  (let ((nm-view-buffer-window (get-buffer-window nm-view-buffer)))
-    (when nm-view-buffer-window
-      (nm-apply-to-result (lambda (q)
-                            (when (not (equal q nm-view-buffer-contents-query))
-                              (nm-show-messages q nil)))))))
+  (let ((nm-view-buffer-window (get-buffer-window nm-view-buffer))
+        (query (nm-query-for-result-at-pos)))
+    (when (and query nm-view-buffer-window
+               (not (equal query nm-view-buffer-contents-query)))
+      (nm-show-messages query nil))))
 
 (defun nm-results-post-command ()
   (if (eobp)
@@ -641,15 +641,12 @@ If EXPECT-SEQUENCE then assumes that the process output is a sequence of LISP ob
        buffer `((window-height . ,(min (truncate (* (window-height) nm-view-window-percent-size))
                                        (- (window-height) nm-results-window-min-size 2))))))))
 
-(defun nm-apply-to-result (fn)
+(defun nm-query-for-result-at-pos ()
   (let ((result (nm-result-at-pos)))
     (when result
-      (let ((query
-             (concat
-              (if (nm-thread-mode)
-                  (concat "thread:" (plist-get result :thread))
-                (concat "id:" (plist-get result :id))))))
-        (funcall fn query)))))
+      (if (nm-thread-mode)
+          (concat "thread:" (plist-get result :thread))
+        (concat "id:" (plist-get result :id))))))
 
 (defun nm-refresh-result ()
   (let ((result (nm-result-at-pos)))
@@ -666,78 +663,76 @@ If EXPECT-SEQUENCE then assumes that the process output is a sequence of LISP ob
 ; TODO: the result may no longer match the query (e.g., if the query was tag:unread and we've now read the message).
 ; So we want to combine q below with nm-query to detect this case.
   (pcase nm-query-mode
-    (`thread (nm-apply-to-result (lambda (q)
-                                   (let ((old-result (nm-result-at-pos))
-                                         (now-result (nm-call-notmuch "search" "--output=summary" "--exclude=false" q)))
-                                     (if (and old-result now-result)
-                                         (let ((old-tags (plist-get old-result :tags))
-                                               (now-tags (plist-get (car now-result) :tags)))
-                                           (unless (equal old-tags now-tags)
-                                             (let ((index (nm-result-index-at-pos)))
-                                               (when index
-                                                 (nm-dynarray-set nm-results index (car now-result))))
-                                             (nm-refresh-result))))))))
-    (`message (nm-apply-to-result (lambda (q)
-                                    (let* ((old-result (nm-result-at-pos))
-                                           (msgs (nm-flatten-forest (nm-call-notmuch "show" "--body=false" "--entire-thread=false" "--exclude=false" q)))
-                                           (msg (car msgs))
-                                           (now-result `(:subject ,(plist-get (plist-get msg :headers) :Subject)
-                                                                  :authors ,(plist-get (plist-get msg :headers) :From)
-                                                                  :date_relative ,(plist-get msg :date_relative)
-                                                                  :tags ,(plist-get msg :tags)
-                                                                  :id ,(plist-get msg :id))))
-                                      (if (and old-result now-result)
-                                          (let ((old-tags (plist-get old-result :tags))
-                                                (now-tags (plist-get now-result :tags)))
-                                            (unless (equal old-tags now-tags)
-                                              (let ((index (nm-result-index-at-pos)))
-                                                (when index
-                                                  (nm-dynarray-set nm-results index now-result)))
-                                              (nm-refresh-result))))))))))
+    (`thread (let ((old-result (nm-result-at-pos))
+                   (now-result (nm-call-notmuch "search" "--output=summary" "--exclude=false"
+                                                (nm-query-for-result-at-pos))))
+               (if (and old-result now-result)
+                   (let ((old-tags (plist-get old-result :tags))
+                         (now-tags (plist-get (car now-result) :tags)))
+                     (unless (equal old-tags now-tags)
+                       (let ((index (nm-result-index-at-pos)))
+                         (when index
+                           (nm-dynarray-set nm-results index (car now-result))))
+                       (nm-refresh-result))))))
+    (`message (let* ((old-result (nm-result-at-pos))
+                     (msgs (nm-flatten-forest (nm-call-notmuch
+                                               "show"
+                                               "--body=false" "--entire-thread=false" "--exclude=false"
+                                               (nm-query-for-result-at-pos))))
+                     (msg (car msgs))
+                     (now-result `(:subject ,(plist-get (plist-get msg :headers) :Subject)
+                                             :authors ,(plist-get (plist-get msg :headers) :From)
+                                             :date_relative ,(plist-get msg :date_relative)
+                                             :tags ,(plist-get msg :tags)
+                                             :id ,(plist-get msg :id))))
+                 (if (and old-result now-result)
+                     (let ((old-tags (plist-get old-result :tags))
+                           (now-tags (plist-get now-result :tags)))
+                       (unless (equal old-tags now-tags)
+                         (let ((index (nm-result-index-at-pos)))
+                           (when index
+                             (nm-dynarray-set nm-results index now-result)))
+                         (nm-refresh-result))))))))
 
 (defun nm-focus-thread ()
   "Show the thread of the current message (in message mode) or just this thread (in thread mode)"
   (interactive)
   (pcase nm-query-mode
-    (`thread (nm-apply-to-result (lambda (q)
-                                   (setq nm-query q)
-                                   (nm-refresh))))
-    (`message (nm-apply-to-result (lambda (q)
-                                    (let ((result (nm-call-notmuch "search" "--output=summary" "--exclude=false" q)))
-                                      (when result
-                                        (let ((thread-id (plist-get (car result) :thread)))
-                                          (when thread-id
-                                            (setq nm-query (concat "thread:" thread-id))
-                                            (nm-refresh))))))))))
+    (`thread (setq nm-query (nm-query-for-result-at-pos)) (nm-refresh))
+    (`message (let ((result (nm-call-notmuch
+                             "search" "--output=summary" "--exclude=false"
+                             (nm-query-for-result-at-pos))))
+                (when result
+                  (let ((thread-id (plist-get (car result) :thread)))
+                    (when thread-id
+                      (setq nm-query (concat "thread:" thread-id))
+                      (nm-refresh))))))))
 
 (defun nm-open ()
   "Open it."
   (interactive)
   (pcase nm-query-mode
-    (`thread (nm-apply-to-result 'nm-show-thread))
-    (`message (nm-apply-to-result 'nm-show-messages))))
+    (`thread (nm-show-thread (nm-query-for-result-at-pos)))
+    (`message (nm-show-messages (nm-query-for-result-at-pos)))))
 
 (defun nm-delete ()
   "Delete it."
   (interactive)
-  (nm-apply-to-result (lambda (q)
-                        (notmuch-tag q '("+deleted" "-unread" "-inbox"))))
+  (notmuch-tag (nm-query-for-result-at-pos) '("+deleted" "-unread" "-inbox"))
   (nm-update-tags)
   (forward-line))
 
 (defun nm-archive ()
   "Archive it."
   (interactive)
-  (nm-apply-to-result (lambda (q)
-                        (notmuch-tag q '("-deleted" "-unread" "-inbox"))))
+  (notmuch-tag (nm-query-for-result-at-pos) '("-deleted" "-unread" "-inbox"))
   (nm-update-tags)
   (forward-line))
 
 (defun nm-forward ()
   "Forward it."
   (interactive)
-  (nm-apply-to-result (lambda (q)
-                        (notmuch-mua-new-forward-messages (list q)))))
+  (notmuch-mua-new-forward-messages (list (nm-query-for-result-at-pos))))
 
 ;;; Le incremental search
 
@@ -825,14 +820,12 @@ If EXPECT-SEQUENCE then assumes that the process output is a sequence of LISP ob
 (defun nm-reply ()
   "Compose a reply."
   (interactive)
-  (nm-apply-to-result (lambda (q)
-                        (notmuch-mua-new-reply q nil nil))))
+  (notmuch-mua-new-reply (nm-query-for-result-at-pos) nil nil))
 
 (defun nm-reply-all ()
   "Compose a reply-all."
   (interactive)
-  (nm-apply-to-result (lambda (q)
-                        (notmuch-mua-new-reply q nil t))))
+  (notmuch-mua-new-reply (nm-query-for-result-at-pos) nil t))
 
 ;;; Junk mail handling
 
@@ -853,15 +846,15 @@ If EXPECT-SEQUENCE then assumes that the process output is a sequence of LISP ob
 (defun nm-junk (&optional arg)
   "Mark it as junk, or, with prefix, not junk."
   (interactive "p")
-  (nm-apply-to-result (lambda (q)
-                        (if (or (not arg) (eq arg 1))
-                            (progn
-                              (nm-bogo-junk q)
-                              (notmuch-tag q '("+junk" "+deleted" "-unread" "-inbox")))
-                          (progn
-                            (nm-bogo-not-junk q)
-                            (notmuch-tag q '("-junk" "-deleted"))))
-                        (nm-refresh))))
+  (let ((query (nm-query-for-result-at-pos)))
+    (if (or (not arg) (eq arg 1))
+        (progn
+          (nm-bogo-junk query)
+          (notmuch-tag query '("+junk" "+deleted" "-unread" "-inbox")))
+      (progn
+        (nm-bogo-not-junk query)
+        (notmuch-tag query '("-junk" "-deleted")))))
+  (nm-refresh))
 
 (defun nm-bulk-junk ()
   "Mark *****SPAM***** as junk."
@@ -926,8 +919,7 @@ If EXPECT-SEQUENCE then assumes that the process output is a sequence of LISP ob
            ((string< (car initial-tags) (car final-tags)) (push (concat "-" (pop initial-tags)) tag-changes))
            (t                                             (progn (pop initial-tags)
                                                                  (pop final-tags)))))
-        (nm-apply-to-result (lambda (q)
-                              (notmuch-tag q tag-changes))))))
+        (notmuch-tag (nm-query-for-result-at-pos) tag-changes))))
   (nm-update-tags))
 
 ;;; Mode definition
