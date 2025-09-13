@@ -454,16 +454,17 @@ If EXPECT-SEQUENCE then assumes that the process output is a sequence of LISP ob
           (insert (nm-result-line result) "\n"))
         (setq nm-results (nm-dynarray-append nm-results result))))))
 
+(defun nm-result-from-msg (msg)
+  `(
+    :subject ,(plist-get (plist-get msg :headers) :Subject)
+    :authors ,(plist-get (plist-get msg :headers) :From)
+    :date_relative ,(plist-get msg :date_relative)
+    :tags ,(plist-get msg :tags)
+    :id ,(plist-get msg :id)))
+
 (defun nm-async-search-message-result (obj)
   (let* ((msgs (nm-flatten-forest (list obj)))
-         (results (mapcar
-                   (lambda (msg)
-                     `(:subject ,(plist-get (plist-get msg :headers) :Subject)
-                                :authors ,(plist-get (plist-get msg :headers) :From)
-                                :date_relative ,(plist-get msg :date_relative)
-                                :tags ,(plist-get msg :tags)
-                                :id ,(plist-get msg :id)))
-                   msgs)))
+         (results (mapcar 'nm-result-from-msg msgs)))
     (with-current-buffer nm-results-buffer
       (save-excursion
         (goto-char (point-max))
@@ -683,19 +684,15 @@ If EXPECT-SEQUENCE then assumes that the process output is a sequence of LISP ob
                                                "--body=false" "--entire-thread=false" "--exclude=false"
                                                (nm-query-for-result-at-pos))))
                      (msg (car msgs))
-                     (now-result `(:subject ,(plist-get (plist-get msg :headers) :Subject)
-                                             :authors ,(plist-get (plist-get msg :headers) :From)
-                                             :date_relative ,(plist-get msg :date_relative)
-                                             :tags ,(plist-get msg :tags)
-                                             :id ,(plist-get msg :id))))
-                 (if (and old-result now-result)
-                     (let ((old-tags (plist-get old-result :tags))
-                           (now-tags (plist-get now-result :tags)))
-                       (unless (equal old-tags now-tags)
-                         (let ((index (nm-result-index-at-pos)))
-                           (when index
-                             (nm-dynarray-set nm-results index now-result)))
-                         (nm-refresh-result))))))))
+                     (now-result (nm-result-from-msg msg)))
+                (if (and old-result now-result)
+                    (let ((old-tags (plist-get old-result :tags))
+                          (now-tags (plist-get now-result :tags)))
+                      (unless (equal old-tags now-tags)
+                        (let ((index (nm-result-index-at-pos)))
+                          (when index
+                            (nm-dynarray-set nm-results index now-result)))
+                        (nm-refresh-result))))))))
 
 (defun nm-focus-thread ()
   "Show the thread of the current message (in message mode) or just this thread (in thread mode)"
