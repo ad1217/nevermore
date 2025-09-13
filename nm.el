@@ -276,10 +276,10 @@ buffer containing notmuch's output and signal an error."
 (defun nm-truncate-or-pad (width str)
   (let ((len (length str)))
     (if (> width len)
-        ; pad
+        ;; pad
         (concat str
                 (format (format "%%%ds" (- width len)) ""))
-      ; truncate
+      ;; truncate
       (format (format "%%.%ds" width) str))))
 
 ;; Display
@@ -383,7 +383,7 @@ If EXPECT-SEQUENCE then assumes that the process output is a sequence of LISP ob
   (let ((pending-output (if expect-sequence "" nil))) ; NB pending-output must be lexically bound!!!
     (lambda (proc string)
       (unless pending-output
-        ; nil => this is the first output, and we are expecting a list of results as a single sexp, so skip the initial left paren
+        ;; nil => this is the first output, and we are expecting a list of results as a single sexp, so skip the initial left paren
         (setq string (substring string 1))
         (setq pending-output ""))
       (setq pending-output (concat pending-output string))
@@ -511,7 +511,7 @@ If EXPECT-SEQUENCE then assumes that the process output is a sequence of LISP ob
 	         "--output=threads"
 	       "--output=messages")
 	     nm-query))
-    (set-process-filter nm-async-count-pending-proc (nm-result-wrangler 'nm-async-count-result t)))
+  (set-process-filter nm-async-count-pending-proc (nm-result-wrangler 'nm-async-count-result t)))
 
 (defun nm-async-count-result (obj)
   (setq nm-all-results-count obj)
@@ -544,11 +544,11 @@ If EXPECT-SEQUENCE then assumes that the process output is a sequence of LISP ob
       (nm-dynarray-get nm-results index))))
 
 (defun nm-flatten-forest (forest)
-;;  (display-message-or-buffer (format "Before: %S" forest))
+  ;; (display-message-or-buffer (format "Before: %S" forest))
   (let ((result
          (apply 'append
                 (mapcar 'nm-flatten-thread forest))))
-;;    (display-message-or-buffer (format "After: %S" result))
+    ;; (display-message-or-buffer (format "After: %S" result))
     result))
 
 (defun nm-flatten-thread (thread)
@@ -663,8 +663,8 @@ If EXPECT-SEQUENCE then assumes that the process output is a sequence of LISP ob
           (insert (nm-result-line result)))))))
 
 (defun nm-update-tags ()
-; TODO: the result may no longer match the query (e.g., if the query was tag:unread and we've now read the message).
-; So we want to combine q below with nm-query to detect this case.
+  ;; TODO: the result may no longer match the query (e.g., if the query was tag:unread and we've now read the message).
+  ;; So we want to combine q below with nm-query to detect this case.
   (pcase nm-query-mode
     (`thread (let ((old-result (nm-result-at-pos))
                    (now-result (nm-call-notmuch "search" "--output=summary" "--exclude=false"
